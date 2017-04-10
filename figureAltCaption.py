@@ -38,36 +38,39 @@ import re #regex
 import logging
 logger = logging.getLogger('MARKDOWN')
 
-FIGURES = [u'^\s*'+IMAGE_LINK_RE+u'\s*$', u'^\s*'+IMAGE_REFERENCE_RE+u'\s*$'] #is: linestart, any whitespace (even none), image, any whitespace (even none), line ends.
+FIGURES = [u'\s*'+IMAGE_LINK_RE+u'\s*', u'\s*'+IMAGE_REFERENCE_RE+u'\s*'] #is: linestart, any whitespace (even none), image, any whitespace (even none), line ends.
 
 # This is the core part of the extension
 class FigureCaptionProcessor(BlockProcessor):
     FIGURES_RE = re.compile('|'.join(f for f in FIGURES))
     def test(self, parent, block): # is the block relevant
         # Wenn es ein Bild gibt und das Bild alleine im paragraph ist, und das Bild nicht schon einen figure parent hat, returne True
-        isImage = bool(self.FIGURES_RE.search(block))
-        isOnlyOneLine = (len(block.splitlines())== 1)
-        isInFigure = (parent.tag == 'figure')
+        lines = block.split("\n")
+        for line in lines:
+            isImage = bool(self.FIGURES_RE.search(line))
+            isInFigure = (parent.tag == 'figure')
 
-        # print(block, isImage, isOnlyOneLine, isInFigure, "T,T,F")
-        if (isImage and isOnlyOneLine and not isInFigure):
-            return True
-        else:
-            return False
+            if not (isImage and not isInFigure):
+                return False
+        return True
 
     def run(self, parent, blocks): # how to process the block?
         raw_block = blocks.pop(0)
-        captionText = self.FIGURES_RE.search(raw_block).group(1)
 
-        # create figure
-        figure = etree.SubElement(parent, 'figure')
+        lines = raw_block.split("\n")
+        x = etree.SubElement(parent, 'div')
+        for line in lines:
+            captionText = self.FIGURES_RE.search(line).group(1)
 
-        # render image in figure
-        figure.text = raw_block
+            # create figure
+            figure = etree.SubElement(x, 'figure')
 
-        # create caption
-        figcaptionElem = etree.SubElement(figure,'figcaption')
-        figcaptionElem.text = captionText #no clue why the text itself turns out as html again and not raw. Anyhow, it suits me, the blockparsers annoyingly wrapped everything into <p>.
+            # render image in figure
+            figure.text = line
+
+            # create caption
+            figcaptionElem = etree.SubElement(figure,'figcaption')
+            figcaptionElem.text = captionText #no clue why the text itself turns out as html again and not raw. Anyhow, it suits me, the blockparsers annoyingly wrapped everything into <p>.
 
 class FigureCaptionExtension(Extension):
     def extendMarkdown(self, md, md_globals):
